@@ -1,0 +1,8 @@
+variables:      
+  bicepPath: $(Build.SourcesDirectory)/iac/bicep
+  bicepParametersPath: ${{ variables.bicepPath }}/parameters
+  mainBicepTemplateName: main.bicep
+  mainBicepTemplateFile: ${{ variables.bicepPath }}/${{ variables.mainBicepTemplateName }}  
+  workloadName: webapp-with-sql-paas
+  
+  

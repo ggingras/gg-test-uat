@@ -1,0 +1,67 @@
+parameters:
+- name: stage
+  type: string
+- name: deploymentBranchOverride
+  type: boolean
+  default: false
+
+stages:
+- stage: Deploy_${{ parameters.stage }}_Stage
+  displayName: Deploy ${{ parameters.stage }}
+  condition: |
+    and(
+      succeeded(),
+      or(
+        eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+        and(
+          eq(variables.allowDeploymentBranchOverride, true),
+          eq(${{ parameters.deploymentBranchOverride }}, true)
+        )
+      )
+    )      
+
+  variables:
+  - template: ./variables/pipeline.variables.yml
+  - template: ./variables/pipeline.variables.${{ parameters.stage }}.yml
+
+  pool:
+    ${{ if eq(variables['useHostedAgent'], true) }}:
+      vmImage: ${{ variables.agentPool }}
+    ${{ if ne(variables['useHostedAgent'], true) }}:
+      name: ${{ variables.agentPool }}  
+      demands: agent.os -equals Linux
+  
+  jobs:
+  - template: ./pipeline.job.pal.yml
+    parameters:
+     serviceConnection: ${{ variables.serviceConnection }}
+
+  - deployment: Deploy_${{ parameters.stage }}_Job
+    displayName: Deploy ${{ parameters.stage }}
+    environment: ${{ variables.workloadName }}-${{ parameters.stage }}
+    dependsOn: []
+    condition: always()
+    strategy:
+      runOnce:
+        deploy:          
+          steps:             
+          - checkout: self     
+            fetchDepth: 1
+        
+          # Deploy IaC
+          - task: AzureCLI@2
+            displayName: 'Deploy Waf IaC'                 
+            inputs:              
+              azureSubscription: ${{ variables.serviceConnection }}
+              failOnStandardError: true
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'              
+              inlineScript: |      
+                az deployment sub create \
+                  --name $BUILD_REPOSITORY_NAME-$(date +%s) \
+                  --location eastus \
+                  --template-file ${{ variables.mainBicepTemplateFile }} \
+                  --parameters ${{ variables.bicepParametersPath }}/${{ variables.mainBicepTemplateName }}.parameters.${{ parameters.stage }}.json \
+                  --only-show-errors
+                  
+

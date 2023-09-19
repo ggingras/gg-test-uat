@@ -1,0 +1,7 @@
+variables:  
+  agentPool: ubuntu-latest
+  solutionRoot: $(Build.SourcesDirectory)/src/
+  publishProject: $(solutionRoot)/DotNetCoreSqlDb.csproj
+  buildConfiguration: Release
+  useHostedAgent: true
+  

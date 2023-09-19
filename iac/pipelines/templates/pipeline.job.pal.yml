@@ -1,0 +1,44 @@
+parameters:
+- name: serviceConnection
+  type: string
+
+jobs:
+- job: PAL_Job
+  displayName: Setup PAL
+  
+  steps:
+  - task: AzureCLI@2
+    displayName: 'Set InCycle PAL'
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnection }}
+      addSpnToEnvironment: true      
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        partnerId=${partnerId:-2450255}
+              
+        if [[ $1 == *"--"* ]]; then
+            v="${1/--/}"
+            declare $v="$2"    
+        fi
+        
+        az extension add --name managementpartner
+        
+        existingPartner=$(az managementpartner show 2>/dev/null)
+        existingPartnerId=$(echo $existingPartner | jq --raw-output '.partnerId')
+        existingPartnerName=$(echo $existingPartner | jq --raw-output '.partnerName')
+        
+        if [ -z "$existingPartnerId" ]; then              
+            newPartner=$(az managementpartner create --partner-id $partnerId)
+            newPartnerId=$(echo $newPartner | jq --raw-output '.partnerId')
+            newPartnerName=$(echo $newPartner | jq --raw-output '.partnerName')
+            echo "This user or service principal is now linked to $newPartnerId ($newPartnerName)"  
+        elif [ "$existingPartnerId" == "$partnerId" ]; then
+            echo "This user or service principal is already linked to $existingPartnerName ($existingPartnerId)"
+        else
+            newPartner=$(az managementpartner update --partner-id $partnerId)
+            newPartnerId=$(echo $newPartner | jq --raw-output '.partnerId')
+            newPartnerName=$(echo $newPartner | jq --raw-output '.partnerName')    
+            echo "This user or service principal has been updated from $existingPartnerName ($existingPartnerId) to $newPartnerId ($newPartnerName)"    
+        fi
+      

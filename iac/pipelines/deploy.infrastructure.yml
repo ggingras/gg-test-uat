@@ -1,0 +1,38 @@
+parameters:
+- name: deploymentBranchOverride  
+  type: boolean
+  default: false
+  displayName: Allow deployment to unprotected environments from branch other than 'main'.
+
+trigger:
+    batch: true
+    branches:
+      include:
+        - main
+    paths:
+      exclude:
+        - GitVersion.yml
+      
+variables:   
+  - name: templatesPath
+    value: ./templates
+  - template: ${{ variables.templatesPath }}/variables/pipeline.variables.yml 
+
+stages:
+# Deploy Dev Stage
+- template: ${{ variables.templatesPath }}/pipeline.stage.deploy.yml
+  parameters:
+    stage: dev
+    deploymentBranchOverride: ${{ parameters.deploymentBranchOverride }}    
+
+# Deploy QA Stage
+- template: ${{ variables.templatesPath }}/pipeline.stage.deploy.yml
+  parameters:
+    stage: qa
+    deploymentBranchOverride: ${{ parameters.deploymentBranchOverride }}    
+
+# Deploy PROD Stage
+- template: ${{ variables.templatesPath }}/pipeline.stage.deploy.yml
+  parameters:
+    stage: prod
+    deploymentBranchOverride: ${{ parameters.deploymentBranchOverride }}   

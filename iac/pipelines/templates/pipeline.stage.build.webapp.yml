@@ -1,0 +1,86 @@
+stages:
+- stage: Build_Test_Stage
+  displayName: Build and Test  
+  
+  variables:
+    #- template: ./variables/pipeline.variables.yml
+    - template: ./variables/pipeline.variables.build.yml
+
+  pool:
+    ${{ if eq(variables['useHostedAgent'], true) }}:
+      vmImage: ${{ variables.agentPool }}
+    ${{ if ne(variables['useHostedAgent'], true) }}:
+      name: ${{ variables.agentPool }}  
+      demands: agent.os -equals Linux 
+  
+  jobs:
+  - job: Build_Test_Job
+    displayName: Build and Test        
+    
+    steps:        
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      persistCredentials: true
+
+    - task: NugetAuthenticate@1
+
+    - script: |
+        dotnet new tool-manifest
+        dotnet tool install GitVersion.Tool
+        dotnet gitversion /output buildserver
+      displayName: Run GitVersion
+    
+    - script: |
+        dotnet restore --configfile "nuget.config"
+        dotnet build \
+          --configuration ${{ variables.buildConfiguration }}            
+        
+        dotnet test \
+          --no-build \
+          --configuration ${{ variables.buildConfiguration }} \
+          --logger trx \
+          --collect:"XPlat Code Coverage" \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      displayName: Build and Test
+      workingDirectory: $(solutionRoot)
+
+    - task: PublishTestResults@2
+      displayName: Publish Test Results
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: '**/*.trx'
+        mergeTestResults: true
+        failTaskOnFailedTests: true        
+        buildConfiguration: ${{ variables.buildConfiguration }}
+        publishRunAttachments: true
+
+    # Currently we are not interested in code coverage and this task takes roughly 30 seconds
+    # to complete so I am leaving it commented out for now
+    
+    # - task: PublishCodeCoverageResults@1
+    #   displayName: 'Publish Code Coverage Report'
+    #   inputs:
+    #     codeCoverageTool: 'Cobertura'
+    #     summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+
+    - script: |
+        dotnet publish ${{ variables.publishProject }} \
+          --configuration ${{ variables.buildConfiguration }} \
+          --no-build \
+          --output $(Build.ArtifactStagingDirectory)
+
+        cd $(Build.ArtifactStagingDirectory) && zip -r portal.zip .
+      displayName: Package Application
+
+  
+    - publish: $(Build.ArtifactStagingDirectory)/portal.zip
+      displayName: Publish Build Artifacts
+      artifact: drop
+    
+    - script: |
+        git tag $(Build.BuildNumber)
+        git push origin $(Build.BuildNumber)
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: Tag Repository
+      

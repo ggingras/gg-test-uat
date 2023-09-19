@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namingPrefix": {
+      "value": "webapp-with-sql-paas"
+    },
+    "environmentName": {
+      "value": "dev"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "appServicePlanSKU": {
+      "value": "F1"
+    },
+    "sqlTier": {
+      "value": "Basic"
+    },
+    "sqlSkuName": {
+      "value": "Basic"
+    },
+    "sqlSize": {
+      "value": 1073741824
+    },
+    "globalTags": {
+      "value": {
+        "CostCenter": "1247",
+        "Department": "Digital Innovation",
+        "Owner": "hamza.ahmad",
+        "Template B": "dev",
+        "ProjectName": "webapp-with-sql-paas"
+      }
+    }
+  }
+}

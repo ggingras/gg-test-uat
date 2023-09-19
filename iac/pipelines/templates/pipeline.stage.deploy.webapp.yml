@@ -1,0 +1,64 @@
+parameters:
+- name: stage
+  type: string
+- name: deploymentBranchOverride
+  type: boolean
+  default: false
+
+stages:
+- stage: Deploy_${{ parameters.stage }}_Stage
+  displayName: Deploy ${{ parameters.stage }}
+  condition: |
+    and(
+      succeeded(),
+      or(
+        eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+        and(
+          eq(variables.allowDeploymentBranchOverride, true),
+          eq(${{ parameters.deploymentBranchOverride }}, true)
+        )
+      )
+    )      
+
+  variables:
+  - template: ./variables/pipeline.variables.yml
+  - template: ./variables/pipeline.variables.${{ parameters.stage }}.yml
+  #- group: digital-innovation-portal-secrets-${{ parameters.stage }}
+
+  pool:
+    ${{ if eq(variables['useHostedAgent'], true) }}:
+      vmImage: ${{ variables.agentPool }}
+    ${{ if ne(variables['useHostedAgent'], true) }}:
+      name: ${{ variables.agentPool }}  
+      demands: agent.os -equals Linux
+  
+  jobs:
+  - template: ./pipeline.job.pal.yml
+    parameters:
+     serviceConnection: ${{ variables.serviceConnection }}
+
+  - deployment: Deploy_${{ parameters.stage }}_Job
+    displayName: Deploy ${{ parameters.stage }}
+    environment: ${{ variables.workloadName }}-${{ parameters.stage }}
+    dependsOn: []
+    condition: always()
+    strategy:
+      runOnce:
+        deploy:          
+          steps:             
+          # Deploy Innovation Portal
+          - task: AzureCLI@2
+            displayName: 'Deploy WAF ${{ variables.workloadName }}'
+            inputs:
+              azureSubscription: ${{ variables.serviceConnection }}
+              failOnStandardError: true
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |      
+                az webapp deployment source config-zip \
+                  --only-show-errors \
+                  --resource-group ${{ variables.workloadName }}-${{ parameters.stage }}-rg \
+                  --name ${{ variables.workloadName }}-${{ parameters.stage }}-app \
+                  --src $(Pipeline.Workspace)/drop/portal.zip
+                  
+

@@ -1,0 +1,5 @@
+variables:
+  agentPool: ubuntu-latest
+  allowDeploymentBranchOverride: true
+  serviceConnection: InCycle Labs
+  useHostedAgent: true
